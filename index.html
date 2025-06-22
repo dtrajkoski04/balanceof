@@ -2,36 +2,42 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>My ERC-20 Balance (Holesky)</title>
+  <title>ERC-20 Balance (Holesky)</title>
 
   <!-- ethers.js UMD build -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
 
   <style>
-    body { font-family: system-ui, sans-serif; text-align:center; margin:3rem auto; max-width:34rem; }
-    button { padding:.7rem 1.5rem; font-size:1rem; cursor:pointer; margin-top:1.2rem; }
-    #output { margin-top:1.5rem; font-size:1.2rem; font-weight:600; }
+    body    { font-family: system-ui, sans-serif; text-align:center; margin:3rem auto; max-width:34rem; }
+    button  { padding:.7rem 1.5rem; font-size:1rem; cursor:pointer; margin-top:1.2rem; }
+    #out    { margin-top:1.5rem; font-size:1.2rem; font-weight:600; }
   </style>
 </head>
 <body>
   <h1>ERC-20 Balance Checker</h1>
 
   <button id="btn">Connect wallet</button>
-  <div id="output">—</div>
+  <div id="out">—</div>
 
   <script>
-    /* 1️⃣  Paste your token address here */
-    const tokenAddress = "0xYOUR_TOKEN_ADDRESS_HERE";
+    /* ✅  Paste your token’s contract address here */
+    const tokenAddress = "0xPUT_YOUR_TOKEN_ADDRESS_HERE";
 
-    /* 2️⃣  Minimal ERC-20 ABI for balanceOf / decimals / symbol */
+    /* 🔒  Tiny guard to stop if you forget */
+    if (!ethers.isAddress(tokenAddress)) {
+      alert("⚠️  tokenAddress in the code is not a valid 0x address!");
+      throw new Error("Invalid tokenAddress placeholder");
+    }
+
+    /* Minimal ABI: balanceOf, decimals, symbol */
     const erc20Abi = [
       "function balanceOf(address) view returns (uint256)",
       "function decimals() view returns (uint8)",
-      "function symbol() view returns (string)"
+      "function symbol()   view returns (string)"
     ];
 
-    const btn     = document.getElementById('btn');
-    const output  = document.getElementById('output');
+    const btn  = document.getElementById("btn");
+    const out  = document.getElementById("out");
     let provider, signer, contract;
 
     async function connect() {
@@ -39,48 +45,47 @@
         alert("MetaMask (or another injected wallet) is required.");
         return;
       }
-      /* Request account access */
+      /* Ask MetaMask to connect */
       await window.ethereum.request({ method: "eth_requestAccounts" });
 
       provider = new ethers.BrowserProvider(window.ethereum);
       signer   = await provider.getSigner();
 
-      /* Ensure we’re on Holesky 17000 */
-      const { chainId } = await provider.getNetwork();
-      if (Number(chainId) !== 17000) {
+      /* Require Holesky */
+      const net = await provider.getNetwork();
+      if (Number(net.chainId) !== 17000) {
         alert("Please switch MetaMask to the Holesky testnet (chain ID 17000) and reload.");
         return;
       }
 
-      /* Create contract instance (read-only is fine) */
       contract = new ethers.Contract(tokenAddress, erc20Abi, provider);
-
       btn.textContent = "Show balance";
     }
 
     async function showBalance() {
       try {
         if (!contract) await connect();
-        const address   = await signer.getAddress();
+
+        const addr = await signer.getAddress();
         const [rawBal, decimals, symbol] = await Promise.all([
-          contract.balanceOf(address),
+          contract.balanceOf(addr),
           contract.decimals(),
           contract.symbol()
         ]);
 
         const human = ethers.formatUnits(rawBal, decimals);
-        output.textContent = `Balance: ${human} ${symbol} (address: ${address.slice(0,6)}…${address.slice(-4)})`;
+        out.textContent = `Balance: ${human} ${symbol}`;
       } catch (err) {
         console.error(err);
-        output.textContent = "Error: " + (err.message ?? err);
+        out.textContent = "Error: " + (err.message ?? err);
       }
     }
 
     btn.addEventListener("click", () => {
-      (btn.textContent === "Connect wallet") ? connect() : showBalance();
+      btn.textContent === "Connect wallet" ? connect() : showBalance();
     });
 
-    /* Auto-connect if the site was already authorised */
+    /* Auto-connect if site already authorised earlier */
     if (window.ethereum && window.ethereum.selectedAddress) {
       connect();
     }
