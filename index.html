@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>ERC-20 Balance (Holesky)</title>
+  <meta charset="UTF-8" />
+  <title>FST Balance (Holesky)</title>
 
   <!-- ethers.js UMD build -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
 
   <style>
-    body    { font-family: system-ui, sans-serif; text-align:center; margin:3rem auto; max-width:34rem; }
-    button  { padding:.7rem 1.5rem; font-size:1rem; cursor:pointer; margin-top:1.2rem; }
-    #out    { margin-top:1.5rem; font-size:1.2rem; font-weight:600; }
+    body   { font-family: system-ui, sans-serif; text-align:center; margin:3rem auto; max-width:34rem; }
+    button { padding:.7rem 1.5rem; font-size:1rem; cursor:pointer; margin-top:1.2rem; }
+    #out   { margin-top:1.5rem; font-size:1.2rem; font-weight:600; }
   </style>
 </head>
 <body>
@@ -20,13 +20,8 @@
   <div id="out">—</div>
 
   <script>
+    /* ▶ Your token contract on Holesky */
     const tokenAddress = "0x7AC4Db5E629e78896C011fD75818615Ff30e1211";
-
-    /* 🔒  Tiny guard to stop if you forget */
-    if (!ethers.isAddress(tokenAddress)) {
-      alert("⚠️  tokenAddress in the code is not a valid 0x address!");
-      throw new Error("Invalid tokenAddress placeholder");
-    }
 
     /* Minimal ABI: balanceOf, decimals, symbol */
     const erc20Abi = [
@@ -44,16 +39,15 @@
         alert("MetaMask (or another injected wallet) is required.");
         return;
       }
-      /* Ask MetaMask to connect */
       await window.ethereum.request({ method: "eth_requestAccounts" });
 
       provider = new ethers.BrowserProvider(window.ethereum);
       signer   = await provider.getSigner();
 
-      /* Require Holesky */
-      const net = await provider.getNetwork();
-      if (Number(net.chainId) !== 17000) {
-        alert("Please switch MetaMask to the Holesky testnet (chain ID 17000) and reload.");
+      /* Ensure Holesky network */
+      const { chainId } = await provider.getNetwork();
+      if (Number(chainId) !== 17000) {
+        alert("Please switch MetaMask to the Holesky testnet (chain-ID 17000) and reload.");
         return;
       }
 
@@ -65,7 +59,7 @@
       try {
         if (!contract) await connect();
 
-        const addr = await signer.getAddress();
+        const addr = await signer.getAddress();               // dynamic MetaMask account
         const [rawBal, decimals, symbol] = await Promise.all([
           contract.balanceOf(addr),
           contract.decimals(),
@@ -84,9 +78,18 @@
       btn.textContent === "Connect wallet" ? connect() : showBalance();
     });
 
-    /* Auto-connect if site already authorised earlier */
+    /* Auto-connect if the site was authorised earlier */
     if (window.ethereum && window.ethereum.selectedAddress) {
       connect();
+    }
+
+    /* React to account switches without reload */
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", () => {
+        out.textContent = "—";
+        btn.textContent = "Show balance";
+        contract = null;   // force reconnect on next click
+      });
     }
   </script>
 </body>
